@@ -11,12 +11,15 @@ All results return in whole numbers, rounded.
 
 ### Arguments
 `-e, --expr <expression>`
+
 Expression as string. ie: (4+1)(5^2)/2
 
 `--logFile <logging file>`
+
 (Optional) File to output log to. ie: "log.log". Default is "expressionSolver.log".
 
 `--logLevel <loglevel>`
+
 (Optional) Logging level. ie: "WARN", "INFO", "DEBUG"
 	
 	
