@@ -29,8 +29,14 @@ def main():
     expr5 = '(2 - 4)(9 * 0)'
     val5 = expObj.solve(expr5)
 
-    expr6 = '4(9 / 1)'
+    expr6 = '4(9 / 4)'
     val6 = expObj.solve(expr6)
+
+    expr7 = '4(19 / 2)^2'
+    val7 = expObj.solve(expr7)
+
+    expr8 = '4^3(9 / 1)'
+    val8 = expObj.solve(expr8)
 
 if __name__ == "__main__":
     main()
