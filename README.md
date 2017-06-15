@@ -4,10 +4,18 @@
 This applicaiton takes an expression as a string and solves it. 
 
 It is capable of handling parenthesis, exponentiation, multiplicaiton, division, addition and subtraction.
-The program also recognizes when a number outside of the parenthesis is touching the parenthesis that it is supposed to do multiplicaiton.
+The program also recognizes when a number outside of the parenthesis is touching the parenthesis, noting that this indicates multiplicaiton.
 All results return in whole numbers, rounded.
 
 ## Usage
+
+### Operators
+Parenthesis "(" and ")".
+Exponentiation "^". ie: 2^2 is 2 to the power of 2.
+Multiplication "*".
+Division "/".
+Addition "+".
+Subtraction "-".
 
 ### Arguments
 `-e, --expr <expression>`
