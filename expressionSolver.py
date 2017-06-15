@@ -1,49 +1,59 @@
-__author__='szmania'
-
-#
+###
 # Created by Curtis Szmania
 # Date: 4/18/17
 # Comment: PLEXSYS coding assessment
-#
+# Expression solver to solve a given expression string.
+###
 
-import sys
-import re
-import operator
-import logging
+__author__='szmania'
 
+from argparse import ArgumentParser
+from logging import DEBUG, FileHandler, Formatter, getLogger, StreamHandler
+# noinspection PyUnresolvedReferences
+from operator import add, div, mul, pow, sub
+from re import findall, search, sub as reSub
+from sys import stdout
 
 class ExpressionSolver(object):
-    def __init__(self, logLevel='DEBUG', logFile='log.log'):
-        self.logLevel = logLevel
-        self.logger = logging.getLogger('Expressions.__init__')
-        self._setLogger(logFile=logFile)
-
+    def __init__(self, logFile='expressionSolver.log', logLevel='DEBUG'):
+        self.__logFile = logFile
+        self.__logLevel = logLevel
+        self.logger = getLogger('Expressions.__init__')
+        self._setup_logger(logFile=self.__logFile)
 
     @property
     def logLevel(self):
-        return self._logLevel
+        return self.__logLevel
 
     @logLevel.setter
     def logLevel(self, level):
-        self._logLevel = level
+        self.__logLevel = level
+        
+    @property
+    def logFile(self):
+        return self.__logFile
+
+    @logFile.setter
+    def logFile(self, value):
+        self.__logFile = value
 
     @property
     def expression(self):
-        return self._expression
+        return self.__expression
 
     @expression.setter
     def expression(self, expr):
-        self._expression = expr
+        self.__expression = expr
 
     @property
     def result(self):
-        return self._result
+        return self.__result
 
     @result.setter
     def result(self, value):
-        self._result = value
+        self.__result = value
 
-    def _setLogger(self, logFile):
+    def _setup_logger(self, logFile):
         """
         Logger setup.
 
@@ -53,238 +63,264 @@ class ExpressionSolver(object):
         :return:
         """
 
-        root = logging.getLogger()
-        root.setLevel(logging.DEBUG)
+        root = getLogger()
+        root.setLevel(DEBUG)
 
-        self.handler = logging.FileHandler(logFile)
-        formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
+        self.handler = FileHandler(logFile)
+        formatter = Formatter('%(levelname)s:%(name)s:%(message)s')
 
-        # formatter = logging.Formatter(fmt='%(message)s', datefmt='')
+        # formatter = Formatter(fmt='%(message)s', datefmt='')
         self.handler.setFormatter(formatter)
 
-        ch = logging.StreamHandler(sys.stdout)
-        ch.setLevel(logging.DEBUG)
+        ch = StreamHandler(stdout)
+        ch.setLevel(DEBUG)
         ch.setFormatter(formatter)
 
         root.addHandler(self.handler)
         root.addHandler(ch)
 
-
-    def run(self, expr):
+    def solve(self, expr):
         """
-        Evaluates expression self._expression and returns value.
+        Evaluates expression self.__expression and returns value.
 
         :param expr: ExpressionSolver to solve. ie: "(1 + 2) / 3"
         :param expr: String.
 
-        :return:  What the expression equals as a string.
+        :return: What the expression equals as a string.
         """
 
-        logger = logging.getLogger('Expressions.run')
+        logger = getLogger('Expressions.solve')
         logger.setLevel(self.logLevel)
 
         logger.debug(' Running equation solver.')
 
-        self.expression = expr
+        self.__expression = expr
 
-        self.result = self._solveEquation(expr)
+        self.__result = self._solve_equation(expr)
 
-        self._display_result(expression=expr, result=self.result)
+        self._display_result(expr=self.__expression, result=self.__result)
 
-        return self.result
+        return self.__result
 
-
-
-    def _solveEquation(self, expression):
+    def _solve_equation(self, expr):
         """
         Evaluates expression expression and returns value.
         
-        @param expression: ExpressionSolver to solve.
-
-        @return expression:  What the expression equals to as string.
+        :param expr: expression to solve.
+        :type expr: String.
+        
+        :return: Return result as string.
         """
 
-        logger = logging.getLogger('ExpressionSolver._solveEquation')
-        logger.setLevel(self.logLevel)
+        logger = getLogger('ExpressionSolver._solve_equation')
+        logger.setLevel(self.__logLevel)
 
-        logger.debug(' Solve equation: "%s"' % expression)
+        logger.debug(' Solve equation: "%s"' % expr)
 
-        expression = re.sub(' ', '', expression)
+        expr_stripped = reSub(' ', '', expr)
 
-        while '(' in expression:
-            expression = self._solve_parentheses(expression)
+        while '(' in expr_stripped:
+            expr_stripped = self._solve_parentheses(expr_stripped)
 
-        while '*' in expression:
-            expression = self._solve_multiplication(expression)
-            if not '*' in expression:
+        while '^' in expr_stripped:
+            expr_stripped = self._solve_exponentiation(expr_stripped)
+            if not '^' in expr_stripped:
                 break
 
-        while '/' in expression:
-            expression = self._solve_division(expression)
-            if not '/' in expression:
+        while '*' in expr_stripped:
+            expr_stripped = self._solve_multiplication(expr_stripped)
+            if not '*' in expr_stripped:
                 break
 
-
-        while '+' in expression:
-            expression = self._solve_addition(expression)
-            if not '+' in expression:
+        while '/' in expr_stripped:
+            expr_stripped = self._solve_division(expr_stripped)
+            if not '/' in expr_stripped:
                 break
 
-        while len(re.findall('\d+\-\d+', expression)) > 0:
+        while '+' in expr_stripped:
+            expr_stripped = self._solve_addition(expr_stripped)
+            if not '+' in expr_stripped:
+                break
+
+        while len(findall('\d+\-\d+', expr_stripped)) > 0:
         # while '-' in expression:
-            expression = self._solve_subtraction(expression)
-            if not '-' in expression:
+            expr_stripped = self._solve_subtraction(expr_stripped)
+            if not '-' in expr_stripped:
                 break
 
+        if expr_stripped == '-0':
+            expr_stripped = '0'
 
-        if expression == '-0':
-            expression = '0'
+        return str(expr_stripped)
 
-        return expression
-
-
-    def _solve_parentheses(self, expression):
+    def _solve_parentheses(self, expr):
         """
         Solves the equations in parentheses first.
 
-        @param expression: ExpressionSolver to solve.
+        :param expr: Expression with parentheses to solve.
+        :type expr: String.
 
-        @return expression:  What whole equation including the parentheses expression is as string.
-
+        :return:  What whole equation including the parentheses expression is as string.
         """
 
-        logger = logging.getLogger('ExpressionSolver._solve_parentheses')
-        logger.setLevel(self.logLevel)
+        logger = getLogger('ExpressionSolver._solve_parentheses')
+        logger.setLevel(self.__logLevel)
 
-        expression = re.sub('\)\(', ')*(', expression)
-        expression = re.sub('(\d+)\(', '\\1*(', expression)
+        expr = reSub('\)\(', ')*(', expr)
+        expr = reSub('(\d+)\(', '\\1*(', expr)
 
-        exp = expression[re.search('\(', expression).start():re.search('\)', expression).end()]
-        logger.debug(' Solving parentheses: "%s"' % exp)
+        expr2 = expr[search('\(', expr).start():search('\)', expr).end()]
+        logger.debug(' Solving parentheses: "%s"' % expr2)
 
-        sub = exp
-        exp = exp.replace('(', '')
-        exp = exp.replace(')', '')
-        replaceWith = self._solveEquation(exp)
+        expr2_old = expr2
+        expr2 = expr2.replace('(', '')
+        expr2 = expr2.replace(')', '')
+        replaceWith = self._solve_equation(expr2)
         logger.debug(' Parentheses equation equals: "%s"' % replaceWith)
 
-        expression = expression.replace(sub, replaceWith)
-        logger.debug(' ExpressionSolver is now: "%s"' % expression)
-        return expression
+        expr = expr.replace(expr2_old, replaceWith)
+        logger.debug(' Expression is now: "%s"' % expr)
+        return expr
 
+    def _solve_exponentiation(self, expr):
+        """
+        Solves the exponentiation equations.
 
-    def _solve_multiplication(self, exp):
+        :param expr: Expression to solve.
+        :type expr: String.
+
+        :return:  What whole equation including the exponentiation expression is as string.
+        """
+
+        logger = getLogger('ExpressionSolver._solve_exponentiation')
+        logger.setLevel(self.__logLevel)
+
+        expr_sub = expr[search('\d+\^', expr).start(): search('\^\d+', expr).end()]
+        logger.debug(' Solving multiplication: "%s"' % expr_sub)
+
+        num1 = findall('\d+\^', expr)[0].replace('^', '')
+        num2 = findall('\^\d+', expr)[0].replace('^', '')
+
+        replaceWith = str(pow(int(num1), int(num2)))
+        logger.debug(' Exponentiation equation equals: "%s"' % replaceWith)
+
+        expr = expr.replace(expr_sub, replaceWith)
+        logger.debug(' Expression is now: "%s"' % expr)
+
+        return expr
+
+    def _solve_multiplication(self, expr):
         """
         Solves the multiplication equations.
 
-        @param exp: ExpressionSolver to solve.
-
-        @return exp:  What whole equation including the multiplication expression is as string.
+        :param expr: Expression to solve.
+        :type expr: String.
+        
+        :return:  What whole equation including the multiplication expression is as string.
         """
 
-        logger = logging.getLogger('ExpressionSolver._solve_multiplication')
-        logger.setLevel(self.logLevel)
+        logger = getLogger('ExpressionSolver._solve_multiplication')
+        logger.setLevel(self.__logLevel)
 
-        sub = exp[re.search('\d+\*', exp).start(): re.search('\*\d+', exp).end()]
-        logger.debug(' Solving multiplication: "%s"' % sub)
+        reSub = expr[search('\d+\*', expr).start(): search('\*\d+', expr).end()]
+        logger.debug(' Solving multiplication: "%s"' % reSub)
 
-        num1 = re.findall('\d+\*', exp)[0].replace('*', '')
-        num2 = re.findall('\*\d+', exp)[0].replace('*', '')
+        num1 = findall('\d+\*', expr)[0].replace('*', '')
+        num2 = findall('\*\d+', expr)[0].replace('*', '')
 
-        replaceWith = str(operator.mul(int(num1), int(num2)))
+        replaceWith = str(mul(int(num1), int(num2)))
         logger.debug(' Multiplicaiton equation equals: "%s"' % replaceWith)
 
-        exp = exp.replace(sub, replaceWith)
-        logger.debug(' ExpressionSolver is now: "%s"' % exp)
+        expr = expr.replace(reSub, replaceWith)
+        logger.debug(' Expression is now: "%s"' % expr)
 
-        return exp
+        return expr
 
-
-    def _solve_division(self, exp):
+    def _solve_division(self, expr):
         """
         Solves the division equations.
 
-        @param exp: ExpressionSolver to solve.
+        :param expr: Expression to solve.
+        :type expr: String.
 
-        @return exp:  What whole equation including the the division expression is as string.
+        :return:  What whole equation including the the division expression is as string.
         """
 
-        logger = logging.getLogger('ExpressionSolver._solve_division')
-        logger.setLevel(self.logLevel)
+        logger = getLogger('ExpressionSolver._solve_division')
+        logger.setLevel(self.__logLevel)
 
-        sub = exp[re.search('\d+\/', exp).start(): re.search('\/\d+', exp).end()]
-        logger.debug(' Solving division: "%s"' % sub)
+        reSub = expr[search('\d+\/', expr).start(): search('\/\d+', expr).end()]
+        logger.debug(' Solving division: "%s"' % reSub)
 
-        num1 = re.findall('\d+\/', exp)[0].replace('/', '')
-        num2 = re.findall('\/\d+', exp)[0].replace('/', '')
+        num1 = findall('\d+\/', expr)[0].replace('/', '')
+        num2 = findall('\/\d+', expr)[0].replace('/', '')
 
-        replaceWith = str(operator.div(int(num1), int(num2)))
+        replaceWith = str(div(int(num1), int(num2)))
         logger.debug(' Division equation equals: "%s"' % replaceWith)
 
-        exp = exp.replace(sub, replaceWith)
-        logger.debug(' ExpressionSolver is now: "%s"' % exp)
+        expr = expr.replace(reSub, replaceWith)
+        logger.debug(' Expression is now: "%s"' % expr)
 
-        return exp
+        return expr
 
-
-    def _solve_addition(self, exp):
+    def _solve_addition(self, expr):
         """
         Solves the addition equations.
 
-        @param exp: ExpressionSolver to solve.
+        :param expr: Expression to solve.
+        :type: String.
 
-        @return exp:  What whole equation including the addition expression is as string.
+        :return:  What whole equation including the addition expression is as string.
         """
 
-        logger = logging.getLogger('ExpressionSolver._solve_addition')
-        logger.setLevel(self.logLevel)
+        logger = getLogger('ExpressionSolver._solve_addition')
+        logger.setLevel(self.__logLevel)
 
-        sub = exp[re.search('\d+\+', exp).start(): re.search('\+\d+', exp).end()]
-        logger.debug(' Solving addition: "%s"' % sub)
+        reSub = expr[search('\d+\+', expr).start(): search('\+\d+', expr).end()]
+        logger.debug(' Solving addition: "%s"' % reSub)
 
-        num1 = re.findall('\d+\+', exp)[0].replace('+', '')
-        num2 = re.findall('\+\d+', exp)[0].replace('+', '')
-        replaceWith = str(operator.add(int(num1), int(num2)))
+        num1 = findall('\d+\+', expr)[0].replace('+', '')
+        num2 = findall('\+\d+', expr)[0].replace('+', '')
+        replaceWith = str(add(int(num1), int(num2)))
         logger.debug(' Addition equation equals: "%s"' % replaceWith)
 
-        exp = exp.replace(sub, replaceWith)
-        logger.debug(' ExpressionSolver is now: "%s"' % exp)
+        expr = expr.replace(reSub, replaceWith)
+        logger.debug(' Expression is now: "%s"' % expr)
 
-        return exp
+        return expr
 
-
-    def _solve_subtraction(self, exp):
+    def _solve_subtraction(self, expr):
         """
         Solves the subtraction equations.
 
-        @param exp: ExpressionSolver to solve.
-
-        @return exp:  What whole equation including the subtraction expression is as string.
+        :param expr: Expression to solve.
+        :type expr: String.
+        
+        :return exp:  What whole equation including the subtraction expression is as string.
         """
 
-        logger = logging.getLogger('ExpressionSolver._solve_subtraction')
-        logger.setLevel(self.logLevel)
+        logger = getLogger('ExpressionSolver._solve_subtraction')
+        logger.setLevel(self.__logLevel)
 
-        sub = exp[re.search('\d+\-', exp).start(): re.search('\-\d+', exp).end()]
+        reSub = expr[search('\d+\-', expr).start(): search('\-\d+', expr).end()]
 
-        logger.debug(' Solving subtraction: "%s"' % sub)
+        logger.debug(' Solving subtraction: "%s"' % reSub)
 
-        num1 = re.findall('\d+\-', exp)[0].replace('-', '')
-        num2 = re.findall('\-\d+', exp)[0].replace('-', '')
-        replaceWith = str(operator.sub(int(num1), int(num2)))
+        num1 = findall('\d+\-', expr)[0].replace('-', '')
+        num2 = findall('\-\d+', expr)[0].replace('-', '')
+        replaceWith = str(sub(int(num1), int(num2)))
         logger.debug(' Subtraction equation equals: "%s"' % replaceWith)
 
-        exp = exp.replace(sub, replaceWith)
-        logger.debug(' ExpressionSolver is now: "%s"' % exp)
+        expr = expr.replace(reSub, replaceWith)
+        logger.debug(' Expression is now: "%s"' % expr)
 
-        return exp
+        return expr
 
-
-    def _display_result(self, expression, result):
+    def _display_result(self, expr, result):
         """
         Displays results of self.expression and self.result to user in readable format.
         
-        :param expression: Expression to solve.
+        :param expr: Expression to solve.
         :type: String.
         :param result: Result of equation.
         :type: String.
@@ -292,35 +328,41 @@ class ExpressionSolver(object):
         @return None
         """
 
-        logger = logging.getLogger('ExpressionSolver._display_result')
-        logger.setLevel(self.logLevel)
+        logger = getLogger('ExpressionSolver._display_result')
+        logger.setLevel(self.__logLevel)
 
         logger.debug(' Displaying results.')
 
-        print('%s = %s' % (expression, result))
+        print('%s = %s' % (expr, result))
         print('')
 
+def get_args():
+    """
+    Get arguments from command line, and returns them as dictionary.
+
+    :return: Dictionary of arguments.
+    :type: Dictionary.
+    """
+
+    parser = ArgumentParser(description='Give rank of poker hand given five sets of tuples representing five cards.')
+
+    parser.add_argument('-e', '--expr', dest='expression', type=str, required=True,
+                        help='Expression as string.')
+
+    parser.add_argument('--logLevel', dest='logLevel', default='INFO',
+                        help='Set logging level')
+
+    parser.add_argument('--logFile', dest='logFile', default='expressionSolver.log',
+                        help='Logging file.')
+
+    args = parser.parse_args()
+    return args.__dict__
 
 def main():
-    equObj = ExpressionSolver(logLevel='INFO')
+    kwargs = get_args()
 
-    expr1 = '1 + 1'
-    val1 = equObj.run(expr1)
-
-    expr2  = '(3 + 4) * 6'
-    val2 = equObj.run(expr2)
-
-    expr3 = '(1 * 4) + (5 * 2)'
-    val3 = equObj.run(expr3)
-
-    expr4 = '(2 * 4) * 2 + (9 * 0)'
-    val4 = equObj.run(expr4)
-
-    expr5 = '(2 - 4)(9 * 0)'
-    val5 = equObj.run(expr5)
-
-    expr6 = '4(9 / 1)'
-    val6 = equObj.run(expr6)
+    expObj = ExpressionSolver(logFile=kwargs['logFile'],logLevel=kwargs['logLevel'])
+    expObj.solve(kwargs['expression'])
 
 if __name__ == "__main__":
     main()
