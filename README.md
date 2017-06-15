@@ -11,10 +11,15 @@ All results return in whole numbers, rounded.
 
 ### Operators
 Parenthesis "(" and ")".
+
 Exponentiation "^". ie: 2^2 is 2 to the power of 2.
+
 Multiplication "*".
+
 Division "/".
+
 Addition "+".
+
 Subtraction "-".
 
 ### Arguments
